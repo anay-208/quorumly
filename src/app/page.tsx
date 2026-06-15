@@ -54,7 +54,7 @@ export default function Home() {
     <main className="w-full max-w-4xl mx-auto pt-10 px-4">
       <h1 className="text-4xl font-bold text-center mt-10  font-sans">Find the perfect time for your meeting</h1>
 
-      <div className="w-full bg-white rounded-2xl border border-slate-100 p-4 mt-12 font-mono flex flex-col md:flex-row gap-6 md:gap-12">
+      <div className="w-full bg-white rounded-2xl border border-slate-200 p-4 mt-12 font-mono flex flex-col md:flex-row gap-6 md:gap-12">
       {/* Form for event name and show times */}
         <div className="space-y-4 md:flex-3">
           <Field>
