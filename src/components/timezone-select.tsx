@@ -20,29 +20,36 @@ function getSupportedTimeZones() {
 }
 
 type TimezoneSelectProps = {
+  value?: string
   onValueChange?: (value: string) => void
   className?: string
+  id?: string
 }
 
 export function TimezoneSelect({
+  value,
   onValueChange,
   className,
+  id = "timezone",
 }: TimezoneSelectProps) {
-  const [selectedTimeZone, setSelectedTimeZone] = useState(
+  const [internalValue, setInternalValue] = useState(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
   )
+  const selectedTimeZone = value ?? internalValue
 
   const timeZones = getSupportedTimeZones()
 
   return (
     <Select
       value={selectedTimeZone}
-      onValueChange={(value) => {
-        setSelectedTimeZone(value)
-        onValueChange?.(value)
+      onValueChange={(nextValue) => {
+        if (value === undefined) {
+          setInternalValue(nextValue)
+        }
+        onValueChange?.(nextValue)
       }}
     >
-      <SelectTrigger className={className} id="timezone">
+      <SelectTrigger className={className} id={id}>
         <SelectValue placeholder="Select timezone" />
       </SelectTrigger>
       <SelectContent>
