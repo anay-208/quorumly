@@ -28,19 +28,23 @@ export function useCreateMeetingForm() {
     onSubmit: async ({ value }) => {
       setSubmitError(null)
 
-      const result = await createMeeting({
-        ...value,
-        availableDates: value.availableDates.map((date) =>
-          format(date, "yyyy-MM-dd")
-        ),
-      })
+      try {
+        const result = await createMeeting({
+          ...value,
+          availableDates: value.availableDates.map((date) =>
+            format(date, "yyyy-MM-dd")
+          ),
+        })
 
-      if (!result.success) {
-        setSubmitError(result.error)
-        return
+        if (!result.success) {
+          setSubmitError(result.error)
+          return
+        }
+
+        router.push(`/m/${result.slug}`)
+      } catch {
+        setSubmitError("Something went wrong. Please try again.")
       }
-
-      router.push(`/m/${result.slug}`)
     },
   })
 
