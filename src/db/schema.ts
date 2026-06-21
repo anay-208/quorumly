@@ -1,9 +1,10 @@
 import {
-  date,
   integer,
+  date,
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core"
 
@@ -23,16 +24,22 @@ export const meetings = pgTable("meetings", {
     .defaultNow(),
 })
 
-export const meetingDates = pgTable("meeting_dates", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  meetingId: uuid("meeting_id")
-    .notNull()
-    .references(() => meetings.id, { onDelete: "cascade" }),
-  date: date("date").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-})
+export const meetingDates = pgTable(
+  "meeting_dates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    uniqueMeetingDate: unique().on(table.meetingId, table.date),
+  })
+)
 
 export type Meeting = typeof meetings.$inferSelect
 export type NewMeeting = typeof meetings.$inferInsert

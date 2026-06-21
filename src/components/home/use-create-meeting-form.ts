@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
-import { createMeeting } from "@/app/actions/create-meeting"
+import { createMeeting } from "@/actions/create-meeting"
 import { getDefaultTimezone } from "@/lib/utils/timezone"
 import { createMeetingFormSchema } from "@/lib/schemas/create-meeting"
 

@@ -6,16 +6,8 @@ import db from "@/db"
 import { meetingDates, meetings } from "@/db/schema"
 import { createMeetingInputSchema } from "@/lib/schemas/create-meeting"
 
-function generateSlug(eventName: string) {
-  const base =
-    eventName
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 50) || "meeting"
-
-  return `${base}-${crypto.randomUUID().slice(0, 8)}`
+function generateSlug() {
+  return crypto.randomUUID()
 }
 
 function parseHour(value: string, fallback: number) {
@@ -44,7 +36,7 @@ export async function createMeeting(
     parsed.data
 
   try {
-    const slug = generateSlug(eventName)
+    const slug = generateSlug()
 
     const [meeting] = await db
       .insert(meetings)
