@@ -1,6 +1,7 @@
 import {
   integer,
   date,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -41,7 +42,27 @@ export const meetingDates = pgTable(
   })
 )
 
+export const responses = pgTable(
+  "responses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    timeSlots: jsonb("time_slots").notNull().$type<string[]>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    uniqueResponse: unique().on(table.meetingId, table.name),
+  })
+)
+
 export type Meeting = typeof meetings.$inferSelect
 export type NewMeeting = typeof meetings.$inferInsert
 export type MeetingDate = typeof meetingDates.$inferSelect
 export type NewMeetingDate = typeof meetingDates.$inferInsert
+export type Response = typeof responses.$inferSelect
+export type NewResponse = typeof responses.$inferInsert
