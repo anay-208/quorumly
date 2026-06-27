@@ -17,8 +17,8 @@ export function useCreateMeetingForm() {
     defaultValues: {
       eventName: "",
       description: "",
-      fromTime: "",
-      toTime: "",
+      fromTime: "9",
+      toTime: "17",
       timezone: getDefaultTimezone(),
       availableDates: [] as Date[],
     },
