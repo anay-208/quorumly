@@ -28,37 +28,37 @@ export async function saveResponse(
     return { success: false, error: "At least one valid time slot is required." }
   }
 
-  const [meeting] = await db
-    .select({ showFromHour: meetings.showFromHour, showToHour: meetings.showToHour })
-    .from(meetings)
-    .where(eq(meetings.id, meetingId))
-    .limit(1)
+  try {
+    const [meeting] = await db
+      .select({ showFromHour: meetings.showFromHour, showToHour: meetings.showToHour })
+      .from(meetings)
+      .where(eq(meetings.id, meetingId))
+      .limit(1)
 
-  if (!meeting) {
-    return { success: false, error: "Meeting not found." }
-  }
+    if (!meeting) {
+      return { success: false, error: "Meeting not found." }
+    }
 
-  const dates = await db
-    .select({ date: meetingDates.date })
-    .from(meetingDates)
-    .where(eq(meetingDates.meetingId, meetingId))
+    const dates = await db
+      .select({ date: meetingDates.date })
+      .from(meetingDates)
+      .where(eq(meetingDates.meetingId, meetingId))
 
-  const validKeys = new Set<string>()
-  for (const d of dates) {
-    for (let h = meeting.showFromHour; h <= meeting.showToHour; h++) {
-      validKeys.add(`${d.date}T${String(h).padStart(2, "0")}:00`)
-      if (h < meeting.showToHour) {
-        validKeys.add(`${d.date}T${String(h).padStart(2, "0")}:30`)
+    const validKeys = new Set<string>()
+    for (const d of dates) {
+      for (let h = meeting.showFromHour; h <= meeting.showToHour; h++) {
+        validKeys.add(`${d.date}T${String(h).padStart(2, "0")}:00`)
+        if (h < meeting.showToHour) {
+          validKeys.add(`${d.date}T${String(h).padStart(2, "0")}:30`)
+        }
       }
     }
-  }
 
-  const valid = timeSlots.filter((s) => validKeys.has(s))
-  if (valid.length === 0) {
-    return { success: false, error: "No valid time slots provided." }
-  }
+    const valid = timeSlots.filter((s) => validKeys.has(s))
+    if (valid.length === 0) {
+      return { success: false, error: "No valid time slots provided." }
+    }
 
-  try {
     await db
       .insert(responses)
       .values({

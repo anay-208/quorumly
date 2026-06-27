@@ -116,6 +116,7 @@ export function AvailabilityGrid({
       className="overflow-auto rounded-xl border border-slate-200 bg-white p-3 select-none"
       onPointerUp={() => { if (!readOnly) endDrag() }}
       onPointerLeave={() => { if (!readOnly) { endDrag(); onHover(null) } }}
+      onPointerCancel={() => { if (!readOnly) { endDrag(); onHover(null) } }}
     >
       <div className="flex select-none sticky top-0 z-20 bg-white pb-2">
         <div className="w-12 shrink-0" />
@@ -153,6 +154,8 @@ export function AvailabilityGrid({
               const isSelected = selectedSlots.has(key)
               const people = peopleBySlot[key]
               const count = people?.length ?? 0
+              const dateLabel = new Date(`${d.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+              const timeLabel = formatHour(slot.hour, slot.minute)
 
               let cellClass: string
               let cellStyle: React.CSSProperties | undefined
@@ -179,10 +182,10 @@ export function AvailabilityGrid({
               return (
                 <div
                   key={key}
-                  role="button"
+                  role={readOnly ? undefined : "button"}
                   tabIndex={readOnly ? -1 : 0}
-                  aria-label={`${formatHour(slot.hour, slot.minute)} on ${new Date(`${d.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`}
-                  aria-pressed={isSelected}
+                  aria-label={readOnly ? `${timeLabel} on ${dateLabel}, ${count} ${count === 1 ? "person" : "people"} available` : `${timeLabel} on ${dateLabel}`}
+                  aria-pressed={readOnly ? undefined : isSelected}
                   className={cn("flex-1 min-w-0 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500", cellClass)}
                   style={cellStyle}
                   onPointerDown={(e) => { e.preventDefault(); handlePointerDown(key); }}
