@@ -63,6 +63,7 @@ export function AvailabilityGrid({
 }: AvailabilityGridProps) {
   const isDraggingRef = useRef(false)
   const dragModeRef = useRef<"select" | "deselect" | null>(null)
+  const visitedKeysRef = useRef(new Set<string>())
 
   const timeSlots = generateTimeSlots(fromHour, toHour)
 
@@ -71,6 +72,7 @@ export function AvailabilityGrid({
       if (readOnly) return
       isDraggingRef.current = true
       dragModeRef.current = selectedSlots.has(key) ? "deselect" : "select"
+      visitedKeysRef.current = new Set([key])
       onToggle(key)
     },
     [selectedSlots, onToggle, readOnly]
@@ -79,19 +81,31 @@ export function AvailabilityGrid({
   const handlePointerEnter = useCallback(
     (key: string) => {
       onHover(key)
+      if (readOnly || !isDraggingRef.current || !dragModeRef.current) return
 
+      if (visitedKeysRef.current.has(key)) return
+      visitedKeysRef.current.add(key)
+      onToggle(key)
+    },
+    [onHover, onToggle, readOnly]
+  )
+
+  const handleKeyDown = useCallback(
+    (key: string, e: React.KeyboardEvent) => {
       if (readOnly) return
-      if (!isDraggingRef.current || !dragModeRef.current) return
-
-      const shouldSelect = dragModeRef.current === "select"
-      const isSelected = selectedSlots.has(key)
-
-      if (shouldSelect !== isSelected) {
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault()
         onToggle(key)
       }
     },
-    [selectedSlots, onToggle, onHover, readOnly]
+    [readOnly, onToggle]
   )
+
+  const endDrag = useCallback(() => {
+    isDraggingRef.current = false
+    dragModeRef.current = null
+    visitedKeysRef.current = new Set()
+  }, [])
 
   const sortedDates = [...dates].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -100,17 +114,8 @@ export function AvailabilityGrid({
   return (
     <div
       className="overflow-auto rounded-xl border border-slate-200 bg-white p-3 select-none"
-      onPointerUp={() => {
-        if (readOnly) return
-        isDraggingRef.current = false
-        dragModeRef.current = null
-      }}
-      onPointerLeave={() => {
-        if (readOnly) return
-        isDraggingRef.current = false
-        dragModeRef.current = null
-        onHover(null)
-      }}
+      onPointerUp={() => { if (!readOnly) endDrag() }}
+      onPointerLeave={() => { if (!readOnly) { endDrag(); onHover(null) } }}
     >
       <div className="flex select-none sticky top-0 z-20 bg-white pb-2">
         <div className="w-12 shrink-0" />
@@ -174,10 +179,15 @@ export function AvailabilityGrid({
               return (
                 <div
                   key={key}
-                  className={cn("flex-1 min-w-0 transition-colors", cellClass)}
+                  role="button"
+                  tabIndex={readOnly ? -1 : 0}
+                  aria-label={`${formatHour(slot.hour, slot.minute)} on ${new Date(`${d.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`}
+                  aria-pressed={isSelected}
+                  className={cn("flex-1 min-w-0 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500", cellClass)}
                   style={cellStyle}
                   onPointerDown={(e) => { e.preventDefault(); handlePointerDown(key); }}
                   onPointerEnter={() => handlePointerEnter(key)}
+                  onKeyDown={(e) => handleKeyDown(key, e)}
                 >
                   <div className={cn("h-6", readOnly ? "" : "cursor-pointer")} />
                 </div>

@@ -80,35 +80,39 @@ export function MeetingContent({
     setSaving(true)
     setSaveMsg(null)
 
-    const result = await saveResponse(
-      meeting.id,
-      name.trim(),
-      Array.from(selectedSlots)
-    )
+    try {
+      const result = await saveResponse(
+        meeting.id,
+        name.trim(),
+        Array.from(selectedSlots)
+      )
 
-    if (result.success) {
-      setSaveMsg("success")
-      setResponses((prev) => {
-        const idx = prev.findIndex((r) => r.name === name.trim())
-        const entry = {
-          id: "",
-          name: name.trim(),
-          timeSlots: Array.from(selectedSlots),
-        }
-        if (idx >= 0) {
-          const next = [...prev]
-          next[idx] = entry
-          return next
-        }
-        return [...prev, entry]
-      })
-      setSelectedSlots(new Set())
-      setIsAdding(false)
-    } else {
+      if (result.success) {
+        setSaveMsg("success")
+        setResponses((prev) => {
+          const idx = prev.findIndex((r) => r.name === name.trim())
+          const entry = {
+            id: "",
+            name: name.trim(),
+            timeSlots: Array.from(selectedSlots),
+          }
+          if (idx >= 0) {
+            const next = [...prev]
+            next[idx] = entry
+            return next
+          }
+          return [...prev, entry]
+        })
+        setSelectedSlots(new Set())
+        setIsAdding(false)
+      } else {
+        setSaveMsg("error")
+      }
+    } catch {
       setSaveMsg("error")
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   const handleStartAdding = () => {
