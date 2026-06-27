@@ -84,7 +84,7 @@ export function TimeRangeField({ form }: { form: CreateMeetingForm }) {
   return (
     <Field>
       <FieldLabel htmlFor="show-times-from">
-        Show Times (Optional)
+        Show Times
       </FieldLabel>
       <div className="flex flex-col gap-2 md:flex-row md:gap-4">
         <form.Field name="fromTime">
