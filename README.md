@@ -8,6 +8,10 @@ A when2meet alternative — create events, share a link, and let participants dr
   </a>
 </div>
 
+
+<img width="3388" height="1858" alt="Home Page" src="https://github.com/user-attachments/assets/f646404c-4707-4128-aa4a-c9342d042da7" />
+<img width="3388" height="1904" alt="Meeting Page" src="https://github.com/user-attachments/assets/3a26c6f5-1f21-4b05-bd74-f26b9aeb373b" />
+
 ## Quick Start
 1. Open https://quorumly.vercel.app/
 2. Enter the relevent meeting details
