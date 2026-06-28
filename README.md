@@ -2,13 +2,17 @@
 
 A when2meet alternative — create events, share a link, and let participants drag to select their available time slots. Find the best meeting time for everyone. Better UI, no ads, fully free and open source.
 
-## Features
+<div align="center">
+  <a href="https://quorumly.vercel.app/">
+    <img src="https://img.shields.io/badge/Try%20Now-quorumly.vercel.app-black?style=for-the-badge&logo=vercel" alt="Try Now" />
+  </a>
+</div>
 
-- **Create an event** — Set an event name, pick dates, choose a time range, and get a shareable link.
-- **Availability grid** — Participants click and drag across a grid to mark their available slots. The grid shows who else is available at each time using GitHub-style heatmap colors (darker = more people).
-- **Upsert responses** — Submitting with the same name updates your existing availability rather than creating a duplicate.
-- **Hover to compare** — Hover any slot to highlight which people are available at that time.
-- **Read-only browsing** — Before adding your own availability, the grid is read-only so you can browse others' schedules.
+## Quick Start
+1. Open https://quorumly.vercel.app/
+2. Enter the relevent meeting details
+3. Once created, you can share the link with others, and also add your availability
+4. Once everyone has added their availability, the interactive grid map allows you to see who all are available at a time, and you can schedule a meeting accordingly
 
 ## Tech Stack
 
@@ -28,7 +32,7 @@ A when2meet alternative — create events, share a link, and let participants dr
 - **Availability grid** — The drag-to-select time slot grid on the `/m/[slug]` page was implemented primarily with AI assistance.
 - **Enhancements & bug fixes** — AI (CodeRabbit suggestions and general prompting) was used for incremental improvements, edge case handling, and fixing issues found during development.
 
-## Getting Started
+## Local Development
 
 **Prerequisites:** Node.js, pnpm, a Neon PostgreSQL database.
 
@@ -40,8 +44,8 @@ pnpm install
 cp .env.example .env.local
 # Edit .env.local and add your DATABASE_URL (Neon connection string)
 
-# 3. Push the database schema
-npx drizzle-kit push
+# 3. migrate the database schema
+npx drizzle-kit migrate
 
 # 4. Start the dev server
 pnpm dev
@@ -57,7 +61,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 | `pnpm build` | Build for production |
 | `pnpm start` | Start the production server |
 | `pnpm lint` | Run ESLint |
-| `npx drizzle-kit push` | Push schema to the database |
+| `npx drizzle-kit migrate` | Migrate the database |
 | `npx drizzle-kit generate` | Generate a new migration |
 
 ## Project Structure
