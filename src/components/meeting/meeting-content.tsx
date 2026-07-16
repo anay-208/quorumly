@@ -10,6 +10,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { CopyIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 type Meeting = {
   id: string
@@ -50,6 +52,7 @@ export function MeetingContent({
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<"success" | "error" | null>(null)
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const toggleSlot = useCallback((key: string) => {
     setSelectedSlots((prev) => {
@@ -120,111 +123,133 @@ export function MeetingContent({
     setSaveMsg(null)
   }
 
+  const handleCopyLink = async () => {
+    const url = `${window.location.origin}/m/${meeting.slug}`
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <main className="w-full min-h-dvh flex items-center justify-center py-6 px-4">
       <div className="w-full max-w-5xl">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 font-mono -mt-2">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-semibold text-slate-800">
-            {meeting.eventName}
-          </h1>
-          <div className="min-w-[280px] h-[52px] flex items-end justify-end">
-            {!isAdding ? (
-              <Button onClick={handleStartAdding} className="h-9">
-                + Add Availability
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 font-mono -mt-2">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg font-semibold text-slate-800">
+                {meeting.eventName}
+              </h1>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyLink}
+                className="h-7 gap-1.5"
+              >
+                <HugeiconsIcon icon={CopyIcon} size={14} />
+                {copied ? "Copied!" : "Copy Link"}
               </Button>
-            ) : (
-              <div className="flex items-end gap-3 w-full max-w-[280px]">
-                <div className="flex-1 min-w-0">
-                  <label
-                    htmlFor="name-input"
-                    className="block text-xs font-medium text-slate-500 mb-1"
-                  >
-                    Your Name
-                  </label>
-                  <Input
-                    id="name-input"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    autoComplete="off"
-                    className="h-9"
-                  />
-                </div>
-                <Button
-                  disabled={!name.trim() || selectedSlots.size === 0 || saving}
-                  onClick={handleSave}
-                  className="h-9"
-                >
-                  {saving ? "Saving..." : "Save"}
+            </div>
+            <div className="min-w-[280px] h-[52px] flex items-end justify-end">
+              {!isAdding ? (
+                <Button onClick={handleStartAdding} className="h-9">
+                  + Add Availability
                 </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {saveMsg && (
-          <p
-            className={cn(
-              "text-xs mb-4",
-              saveMsg === "success" ? "text-green-600" : "text-red-500"
-            )}
-          >
-            {saveMsg === "success"
-              ? "Availability saved!"
-              : "Failed to save. Try again."}
-          </p>
-        )}
-
-        <div className="flex flex-col xl:flex-row gap-6">
-          <div className="flex-[2] min-w-0">
-            <AvailabilityGrid
-              dates={dates}
-              fromHour={meeting.showFromHour}
-              toHour={meeting.showToHour}
-              selectedSlots={selectedSlots}
-              onToggle={toggleSlot}
-              onClear={clearSlots}
-              onHover={setHoveredKey}
-              peopleBySlot={isAdding ? {} : peopleBySlot}
-              readOnly={!isAdding}
-            />
-          </div>
-
-          <div className="flex-[1] min-w-0">
-            <h2 className="text-xs font-semibold text-slate-700 mb-3">
-              People
-            </h2>
-
-            {responses.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                No responses yet. Be the first!
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {responses.map((r) => {
-                  const isHighlighted =
-                    hoveredKey !== null &&
-                    peopleBySlot[hoveredKey]?.includes(r.name)
-                  return (
-                    <li
-                      key={`${r.name}-${r.id}`}
-                      className={cn(
-                        "text-sm transition-colors",
-                        isHighlighted
-                          ? "font-bold text-green-600"
-                          : "text-slate-600"
-                      )}
+              ) : (
+                <div className="flex items-end gap-3 w-full max-w-[280px]">
+                  <div className="flex-1 min-w-0">
+                    <label
+                      htmlFor="name-input"
+                      className="block text-xs font-medium text-slate-500 mb-1"
                     >
-                      {r.name}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
+                      Your Name
+                    </label>
+                    <Input
+                      id="name-input"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Enter your name"
+                      autoComplete="off"
+                      className="h-9"
+                    />
+                  </div>
+                  <Button
+                    disabled={!name.trim() || selectedSlots.size === 0 || saving}
+                    onClick={handleSave}
+                    className="h-9"
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {meeting.description && (
+            <p className="text-xs text-slate-500 mb-4">{meeting.description}</p>
+          )}
+
+          {saveMsg && (
+            <p
+              className={cn(
+                "text-xs mb-4",
+                saveMsg === "success" ? "text-green-600" : "text-red-500"
+              )}
+            >
+              {saveMsg === "success"
+                ? "Availability saved!"
+                : "Failed to save. Try again."}
+            </p>
+          )}
+
+          <div className="flex flex-col xl:flex-row gap-6">
+            <div className="flex-[2] min-w-0">
+              <AvailabilityGrid
+                dates={dates}
+                fromHour={meeting.showFromHour}
+                toHour={meeting.showToHour}
+                selectedSlots={selectedSlots}
+                onToggle={toggleSlot}
+                onClear={clearSlots}
+                onHover={setHoveredKey}
+                peopleBySlot={isAdding ? {} : peopleBySlot}
+                readOnly={!isAdding}
+              />
+            </div>
+
+            <div className="flex-[1] min-w-0">
+              <h2 className="text-xs font-semibold text-slate-700 mb-3">
+                People
+              </h2>
+
+              {responses.length === 0 ? (
+                <p className="text-xs text-slate-400">
+                  No responses yet. Be the first!
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {responses.map((r) => {
+                    const isHighlighted =
+                      hoveredKey !== null &&
+                      peopleBySlot[hoveredKey]?.includes(r.name)
+                    return (
+                      <li
+                        key={`${r.name}-${r.id}`}
+                        className={cn(
+                          "text-sm transition-colors",
+                          isHighlighted
+                            ? "font-bold text-green-600"
+                            : "text-slate-600"
+                        )}
+                      >
+                        {r.name}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </main>
   )
