@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useRef } from "react"
-
+import { useCallback, useRef, useMemo } from "react"
+import { fromZonedTime, formatInTimeZone } from "date-fns-tz"
 import { cn } from "@/lib/utils"
 
 export type TimeSlot = {
@@ -48,6 +48,9 @@ type AvailabilityGridProps = {
   onHover: (key: string | null) => void
   peopleBySlot: Record<string, string[]>
   readOnly?: boolean
+  // Added new timezone props
+  displayTimezone?: string
+  meetingTimezone?: string
 }
 
 export function AvailabilityGrid({
@@ -60,13 +63,66 @@ export function AvailabilityGrid({
   onHover,
   peopleBySlot,
   readOnly = false,
+  displayTimezone = "UTC",
+  meetingTimezone = "UTC",
 }: AvailabilityGridProps) {
   const isDraggingRef = useRef(false)
   const dragModeRef = useRef<"select" | "deselect" | null>(null)
   const visitedKeysRef = useRef(new Set<string>())
 
-  const timeSlots = generateTimeSlots(fromHour, toHour)
+  // Memoize basic arrays
+  const timeSlots = useMemo(() => generateTimeSlots(fromHour, toHour), [fromHour, toHour])
+  const sortedDates = useMemo(() => [...dates].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  ), [dates])
 
+  // --- TIMEZONE MAPPING LOGIC ---
+  // We calculate what the original slots look like in the user's selected timezone
+  const gridData = useMemo(() => {
+    const displayDatesSet = new Set<string>()
+    const displayTimesSet = new Set<string>()
+    const mapping: Record<string, Record<string, string>> = {} // displayDate -> displayTimeKey -> originalKey
+
+    sortedDates.forEach((d) => {
+      timeSlots.forEach((ts) => {
+        const originalKey = slotKey(d.date, ts.hour, ts.minute)
+        
+        // 1. Create a local string for the original meeting time
+        const dateStr = `${d.date}T${String(ts.hour).padStart(2, "0")}:${String(ts.minute).padStart(2, "0")}:00`
+        
+        // 2. Convert it into an absolute JS Date using the meeting's original timezone
+        const absoluteDate = fromZonedTime(dateStr, meetingTimezone)
+
+        // 3. Format it into the user's selected display timezone
+        const displayDate = formatInTimeZone(absoluteDate, displayTimezone, "yyyy-MM-dd")
+        const displayHour = parseInt(formatInTimeZone(absoluteDate, displayTimezone, "H"), 10)
+        const displayMinute = parseInt(formatInTimeZone(absoluteDate, displayTimezone, "m"), 10)
+        const displayTimeKey = `${String(displayHour).padStart(2, "0")}:${String(displayMinute).padStart(2, "0")}`
+
+        // 4. Save to our sets to build the new grid columns and rows
+        displayDatesSet.add(displayDate)
+        displayTimesSet.add(displayTimeKey)
+
+        if (!mapping[displayDate]) mapping[displayDate] = {}
+        mapping[displayDate][displayTimeKey] = originalKey
+      })
+    })
+
+    const displayDates = Array.from(displayDatesSet).sort()
+    const displayTimeKeys = Array.from(displayTimesSet).sort()
+
+    // Convert display time strings back into { hour, minute } format for row rendering
+    const displaySlots = displayTimeKeys.map((timeKey) => {
+      const [h, m] = timeKey.split(":").map(Number)
+      return { hour: h, minute: m, key: timeKey }
+    })
+
+    return { displayDates, displaySlots, mapping }
+  }, [sortedDates, timeSlots, meetingTimezone, displayTimezone])
+
+  const { displayDates, displaySlots, mapping } = gridData
+
+  // --- DRAG HANDLERS ---
   const handlePointerDown = useCallback(
     (key: string) => {
       if (readOnly) return
@@ -107,10 +163,6 @@ export function AvailabilityGrid({
     visitedKeysRef.current = new Set()
   }, [])
 
-  const sortedDates = [...dates].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  )
-
   return (
     <div
       className="overflow-auto rounded-xl border border-slate-200 bg-white p-3 select-none"
@@ -121,18 +173,20 @@ export function AvailabilityGrid({
       <div className="flex select-none sticky top-0 z-20 bg-white pb-2">
         <div className="w-12 shrink-0" />
         <div className="flex flex-1 min-w-0 bg-slate-200 rounded-t-md overflow-hidden" style={{ gap: "1px" }}>
-          {sortedDates.map((d) => {
-            const date = new Date(`${d.date}T00:00:00`)
+          
+          {/* Render columns based on DISPLAY dates */}
+          {displayDates.map((dateStr) => {
+            const dateObj = new Date(`${dateStr}T12:00:00`)
             return (
               <div
-                key={d.id}
+                key={dateStr}
                 className="flex-1 min-w-0 bg-white px-1 py-1 text-center text-xs font-medium text-slate-500"
               >
                 <div>
-                  {date.toLocaleDateString("en-US", { weekday: "short" })}
+                  {dateObj.toLocaleDateString("en-US", { weekday: "short" })}
                 </div>
                 <div>
-                  {date.toLocaleDateString("en-US", {
+                  {dateObj.toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                   })}
@@ -144,17 +198,28 @@ export function AvailabilityGrid({
       </div>
 
       <div className="flex flex-col bg-slate-200 rounded-b-md overflow-hidden" style={{ gap: "1px" }}>
-        {timeSlots.map((slot) => (
-          <div key={`${slot.hour}-${slot.minute}`} className="flex" style={{ gap: "1px" }}>
+        
+        {/* Render rows based on DISPLAY hours */}
+        {displaySlots.map((slot) => (
+          <div key={slot.key} className="flex" style={{ gap: "1px" }}>
             <div className="sticky left-0 z-10 w-12 shrink-0 bg-white py-1 pr-2 text-right text-xs text-slate-400">
               {formatHour(slot.hour, slot.minute)}
             </div>
-            {sortedDates.map((d) => {
-              const key = slotKey(d.date, slot.hour, slot.minute)
-              const isSelected = selectedSlots.has(key)
-              const people = peopleBySlot[key]
+            
+            {displayDates.map((dateStr) => {
+              // Retrieve the original UTC-based key for this specific cell
+              const originalKey = mapping[dateStr]?.[slot.key]
+
+              // If a cell falls outside the bounds of the original meeting due to a timezone shift, render a blank space
+              if (!originalKey) {
+                return <div key={`${dateStr}-${slot.key}`} className="flex-1 min-w-0 bg-slate-50/50" />
+              }
+
+              const isSelected = selectedSlots.has(originalKey)
+              const people = peopleBySlot[originalKey]
               const count = people?.length ?? 0
-              const dateLabel = new Date(`${d.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+              
+              const dateLabel = new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
               const timeLabel = formatHour(slot.hour, slot.minute)
 
               let cellClass: string
@@ -181,16 +246,18 @@ export function AvailabilityGrid({
 
               return (
                 <div
-                  key={key}
+                  key={originalKey}
                   role={readOnly ? undefined : "button"}
                   tabIndex={readOnly ? -1 : 0}
                   aria-label={readOnly ? `${timeLabel} on ${dateLabel}, ${count} ${count === 1 ? "person" : "people"} available` : `${timeLabel} on ${dateLabel}`}
                   aria-pressed={readOnly ? undefined : isSelected}
                   className={cn("flex-1 min-w-0 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500", cellClass)}
                   style={cellStyle}
-                  onPointerDown={(e) => { e.preventDefault(); handlePointerDown(key); }}
-                  onPointerEnter={() => handlePointerEnter(key)}
-                  onKeyDown={(e) => handleKeyDown(key, e)}
+                  
+                  // Crucial: Pass the originalKey to the state managers
+                  onPointerDown={(e) => { e.preventDefault(); handlePointerDown(originalKey); }}
+                  onPointerEnter={() => handlePointerEnter(originalKey)}
+                  onKeyDown={(e) => handleKeyDown(originalKey, e)}
                 >
                   <div className={cn("h-6", readOnly ? "" : "cursor-pointer")} />
                 </div>
