@@ -28,11 +28,11 @@ export async function sendInviteEmail({
   hostNote?: string | null
 }) {
   if (!resend) {
-    warnMissingConfig(`invite:${to}`)
+    warnMissingConfig("invite")
     return
   }
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to,
     subject: `You're invited: ${eventName}`,
@@ -57,15 +57,20 @@ export async function sendInviteEmail({
       </div>
     `,
   })
+
+  if (error) {
+    console.error("[email] Failed to send invite email:", error)
+    throw error
+  }
 }
 
 export async function sendMagicLinkEmail(to: string, url: string) {
   if (!resend) {
-    warnMissingConfig(`magic-link:${to}`)
+    warnMissingConfig("magic-link")
     return
   }
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Your Quorumly sign-in link",
@@ -86,6 +91,11 @@ export async function sendMagicLinkEmail(to: string, url: string) {
       </div>
     `,
   })
+
+  if (error) {
+    console.error("[email] Failed to send magic link email:", error)
+    throw error
+  }
 }
 
 function escapeHtml(value: string) {

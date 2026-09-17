@@ -62,7 +62,7 @@ export async function createMeeting(
   try {
     const slug = generateSlug()
 
-    const [meeting] = await db.transaction(async (tx) => {
+    const { meeting, createdInvitees } = await db.transaction(async (tx) => {
       const [newMeeting] = await tx
         .insert(meetings)
         .values({
@@ -81,23 +81,26 @@ export async function createMeeting(
           date,
         }))
       )
-      
-      return [newMeeting]
+
+      let inviteesList: { email: string; token: string }[] = []
+      if (inviteEmails.length > 0) {
+        inviteesList = await tx
+          .insert(invitees)
+          .values(
+            inviteEmails.map((email) => ({
+              meetingId: newMeeting.id,
+              email,
+              token: generateInviteToken(),
+            }))
+          )
+          .onConflictDoNothing()
+          .returning({ email: invitees.email, token: invitees.token })
+      }
+
+      return { meeting: newMeeting, createdInvitees: inviteesList }
     })
 
-    if (inviteEmails.length > 0) {
-      const createdInvitees = await db
-        .insert(invitees)
-        .values(
-          inviteEmails.map((email) => ({
-            meetingId: meeting.id,
-            email,
-            token: generateInviteToken(),
-          }))
-        )
-        .onConflictDoNothing()
-        .returning({ email: invitees.email, token: invitees.token })
-
+    if (createdInvitees.length > 0) {
       const appUrl = getAppUrl()
 
       // Send invite emails in the background without blocking the response.
@@ -123,23 +126,23 @@ export async function createMeeting(
       error: "Failed to create event. Please try again.",
     }
   }
-
-}
 }
 
 export async function getMeetingBySlug(slug: string) {
-  const meetingWithDates = await db.query.meetings.findFirst({
-    where: eq(meetings.slug, slug),
-    with: {
-      dates: true,
-    },
-  })
+  const [meeting] = await db
+    .select()
+    .from(meetings)
+    .where(eq(meetings.slug, slug))
+    .limit(1)
 
-  if (!meetingWithDates) {
+  if (!meeting) {
     return null
   }
 
-  const { dates, ...meeting } = meetingWithDates
+  const dates = await db
+    .select()
+    .from(meetingDates)
+    .where(eq(meetingDates.meetingId, meeting.id))
+
   return { meeting, dates }
 }
-

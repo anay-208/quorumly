@@ -75,7 +75,7 @@ export async function POST(
     const { meetingId } = await params
     const body = (await request.json()) as SaveResponseBody
 
-    const trimmed = body.name.trim()
+    const trimmed = typeof body?.name === "string" ? body.name.trim() : ""
 
     if (!trimmed) {
       return NextResponse.json(
@@ -124,25 +124,21 @@ export async function POST(
       }
 
       await db.transaction(async (tx) => {
-        const [existingUser] = await tx
-          .select({ id: user.id })
-          .from(user)
-          .where(eq(user.email, invitee.email))
-          .limit(1)
+        const [upsertedUser] = await tx
+          .insert(user)
+          .values({
+            id: crypto.randomUUID(),
+            name: trimmed,
+            email: invitee.email,
+            emailVerified: false,
+          })
+          .onConflictDoUpdate({
+            target: user.email,
+            set: { name: trimmed },
+          })
+          .returning({ id: user.id })
 
-        const userId =
-          existingUser?.id ??
-          (
-            await tx
-              .insert(user)
-              .values({
-                id: crypto.randomUUID(),
-                name: trimmed,
-                email: invitee.email,
-                emailVerified: false,
-              })
-              .returning({ id: user.id })
-          )[0].id
+        const userId = upsertedUser.id
 
         await tx
           .insert(responses)
