@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useState } from "react"
 
-import { saveResponse } from "@/actions/responses"
 import {
   AvailabilityGrid,
   type SelectedSlots,
@@ -32,18 +31,25 @@ type ResponseRow = {
   timeSlots: string[]
 }
 
+type InviteInfo = {
+  token: string
+  email: string
+}
+
 type MeetingContentProps = {
   meeting: Meeting
   dates: MeetingDate[]
   initialResponses: ResponseRow[]
+  invite?: InviteInfo | null
 }
 
 export function MeetingContent({
   meeting,
   dates,
   initialResponses,
+  invite,
 }: MeetingContentProps) {
-  const [isAdding, setIsAdding] = useState(false)
+  const [isAdding, setIsAdding] = useState(Boolean(invite))
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlots>(new Set())
   const [name, setName] = useState("")
   const [responses, setResponses] = useState<ResponseRow[]>(initialResponses)
@@ -81,11 +87,19 @@ export function MeetingContent({
     setSaveMsg(null)
 
     try {
-      const result = await saveResponse(
-        meeting.id,
-        name.trim(),
-        Array.from(selectedSlots)
-      )
+      const body = {
+        name: name.trim(),
+        timeSlots: Array.from(selectedSlots),
+        ...(invite && { token: invite.token }),
+      }
+
+      const response = await fetch(`/api/meetings/${meeting.id}/responses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+
+      const result = await response.json()
 
       if (result.success) {
         setSaveMsg("success")
@@ -124,11 +138,18 @@ export function MeetingContent({
     <main className="w-full min-h-dvh flex items-center justify-center py-6 px-4">
       <div className="w-full max-w-5xl">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 font-mono -mt-2">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-semibold text-slate-800">
-            {meeting.eventName}
-          </h1>
-          <div className="min-w-[280px] h-[52px] flex items-end justify-end">
+        <div className="flex items-start justify-between mb-4 gap-4">
+          <div className="flex-1">
+            <h1 className="text-lg font-semibold text-slate-800">
+              {meeting.eventName}
+            </h1>
+            {meeting.description && (
+              <p className="text-xs text-slate-500 mt-1">
+                {meeting.description}
+              </p>
+            )}
+          </div>
+          <div className="flex-shrink-0">
             {!isAdding ? (
               <Button onClick={handleStartAdding} className="h-9">
                 + Add Availability
@@ -162,6 +183,13 @@ export function MeetingContent({
             )}
           </div>
         </div>
+
+        {invite && (
+          <p className="text-xs text-slate-400 mb-4">
+            You&apos;re responding to an invite sent to{" "}
+            <span className="font-medium text-slate-600">{invite.email}</span>.
+          </p>
+        )}
 
         {saveMsg && (
           <p

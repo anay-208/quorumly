@@ -3,11 +3,28 @@
 import { eq } from "drizzle-orm"
 
 import db from "@/db"
-import { meetingDates, meetings } from "@/db/schema"
+import { invitees, meetingDates, meetings } from "@/db/schema"
 import { createMeetingInputSchema } from "@/lib/schemas/create-meeting"
+import { sendInviteEmail } from "@/lib/email"
 
 function generateSlug() {
   return crypto.randomUUID()
+}
+
+function generateInviteToken() {
+  // 32 bytes of randomness, base64url-encoded — used as the identification
+  // parameter in the emailed invite link (see issue #3).
+  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
+    "base64url"
+  )
+}
+
+function getAppUrl() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.BETTER_AUTH_URL ??
+    "http://localhost:3000"
+  )
 }
 
 function parseHour(value: string, fallback: number) {
@@ -32,13 +49,20 @@ export async function createMeeting(
     return { success: false, error: "Invalid form data." }
   }
 
-  const { eventName, description, fromTime, toTime, timezone, availableDates } =
-    parsed.data
+  const {
+    eventName,
+    description,
+    fromTime,
+    toTime,
+    timezone,
+    availableDates,
+    inviteEmails,
+  } = parsed.data
 
   try {
     const slug = generateSlug()
 
-    const [meeting] = await db.transaction(async (tx) => {
+    const { meeting, createdInvitees } = await db.transaction(async (tx) => {
       const [newMeeting] = await tx
         .insert(meetings)
         .values({
@@ -57,9 +81,42 @@ export async function createMeeting(
           date,
         }))
       )
-      
-      return [newMeeting]
+
+      let inviteesList: { email: string; token: string }[] = []
+      if (inviteEmails.length > 0) {
+        inviteesList = await tx
+          .insert(invitees)
+          .values(
+            inviteEmails.map((email) => ({
+              meetingId: newMeeting.id,
+              email,
+              token: generateInviteToken(),
+            }))
+          )
+          .onConflictDoNothing()
+          .returning({ email: invitees.email, token: invitees.token })
+      }
+
+      return { meeting: newMeeting, createdInvitees: inviteesList }
     })
+
+    if (createdInvitees.length > 0) {
+      const appUrl = getAppUrl()
+
+      // Send invite emails in the background without blocking the response.
+      Promise.allSettled(
+        createdInvitees.map((invitee) =>
+          sendInviteEmail({
+            to: invitee.email,
+            eventName,
+            inviteUrl: `${appUrl}/m/${meeting.slug}?token=${invitee.token}`,
+            hostNote: description.trim() || null,
+          })
+        )
+      ).catch((error) => {
+        console.error("Failed to send invite emails:", error)
+      })
+    }
 
     return { success: true, slug: meeting.slug }
   } catch (error) {
@@ -72,17 +129,20 @@ export async function createMeeting(
 }
 
 export async function getMeetingBySlug(slug: string) {
-  const meetingWithDates = await db.query.meetings.findFirst({
-    where: eq(meetings.slug, slug),
-    with: {
-      dates: true,
-    },
-  })
+  const [meeting] = await db
+    .select()
+    .from(meetings)
+    .where(eq(meetings.slug, slug))
+    .limit(1)
 
-  if (!meetingWithDates) {
+  if (!meeting) {
     return null
   }
 
-  const { dates, ...meeting } = meetingWithDates
+  const dates = await db
+    .select()
+    .from(meetingDates)
+    .where(eq(meetingDates.meetingId, meeting.id))
+
   return { meeting, dates }
 }
